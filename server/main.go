@@ -3,10 +3,13 @@ package main
 import (
 	"flag"
 	"github.com/bitcapybara/cuckoo/server"
+	"github.com/bitcapybara/cuckoo/server/controller"
 	"github.com/bitcapybara/raft"
+	"github.com/bitcapybara/simpleSched/server/raftimpl"
 	"github.com/gin-gonic/gin"
 	"log"
 	"strings"
+	"time"
 )
 
 const NoneOption = ""
@@ -52,6 +55,7 @@ type schedServer struct {
 }
 
 func newServer(role raft.RoleStage, me raft.NodeId, peers map[raft.NodeId]raft.NodeAddr) *schedServer {
+	logger := raftimpl.NewLogger()
 	config := server.Config{
 		RaftConfig: raft.Config{
 			Peers:              peers,
@@ -62,8 +66,9 @@ func newServer(role raft.RoleStage, me raft.NodeId, peers map[raft.NodeId]raft.N
 			HeartbeatTimeout:   1000,
 			MaxLogLength:       50,
 		},
-		JobPool:       nil,
+		JobPool:       controller.NewSliceJobPool(logger),
 		JobDispatcher: nil,
+		ExecutorExpire: time.Second * 10,
 	}
 	ginServer := gin.Default()
 	return &schedServer{
