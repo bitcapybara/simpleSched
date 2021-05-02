@@ -26,14 +26,14 @@ func (h *HttpDispatcher) Dispatch(clientAddr core.NodeAddr, id core.JobId) (err 
 		}
 	}()
 	// 发送请求
-	url := fmt.Sprintf("%s%s%s", "http://", clientAddr, "/appendEntries")
+	url := fmt.Sprintf("%s%s%s", "http://", clientAddr, "/execute")
 	var res string
-	response, resErr := h.client.R().SetPathParam("jobId", string(id)).SetResult(&res).Post(url)
+	response, resErr := h.client.R().SetQueryParam("jobId", string(id)).SetResult(&res).Post(url)
 	if resErr != nil {
-		return fmt.Errorf("发送请求失败！%w", resErr)
+		return fmt.Errorf("发送请求失败！%w, %s", resErr)
 	}
 	if response.StatusCode() != 200 {
-		return fmt.Errorf("发送请求响应码异常：%d", response.StatusCode())
+		return fmt.Errorf("发送请求响应码异常：%d, %s", response.StatusCode())
 	}
 	return nil
 }

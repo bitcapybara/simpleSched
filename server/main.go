@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/bitcapybara/cuckoo/core"
 	"github.com/bitcapybara/cuckoo/server"
 	"github.com/bitcapybara/cuckoo/server/controller"
 	"github.com/bitcapybara/raft"
@@ -64,6 +65,10 @@ func newServer(role raft.RoleStage, me raft.NodeId, peers map[raft.NodeId]raft.N
 			Peers:              peers,
 			Me:                 me,
 			Role:               role,
+			Transport:          raftimpl.NewHttpTransport(logger),
+			Logger:             logger,
+			RaftStatePersister: raftimpl.NewRaftStatePersister(),
+			SnapshotPersister:  raftimpl.NewSnapshotPersister(),
 			ElectionMaxTimeout: 10000,
 			ElectionMinTimeout: 5000,
 			HeartbeatTimeout:   1000,
@@ -89,12 +94,49 @@ func (s *schedServer) start() {
 
 	// 启动 gin服务
 	g := s.ginServer
-	g.GET("/job/add")
+	g.POST("/job/add", s.addJob)
+	g.POST("/heartbeat", s.heartbeat)
 
 	g.POST("/appendEntries", s.appendEntries)
 	g.POST("/requestVote", s.requestVote)
 	g.POST("/installSnapshot", s.installSnapshot)
 	_ = g.Run(s.addr)
+}
+
+func (s *schedServer) addJob(ctx *gin.Context) {
+	// 反序列化获取请求参数
+	var args core.AddJobReq
+	bindErr := ctx.Bind(&args)
+	if bindErr != nil {
+		ctx.String(500, "反序列化参数失, %s", bindErr.Error())
+		return
+	}
+	var res core.CudReply
+	cuckooErr := s.cuckooServer.AddJob(args, &res)
+	if cuckooErr != nil {
+		ctx.String(500, "cuckoo 操作失败！%s", cuckooErr.Error())
+		return
+	}
+	// 序列化并返回结果
+	ctx.JSON(200, res)
+}
+
+func (s *schedServer) heartbeat(ctx *gin.Context) {
+	// 反序列化获取请求参数
+	var args core.HeartbeatReq
+	bindErr := ctx.Bind(&args)
+	if bindErr != nil {
+		ctx.String(500, "反序列化参数失, %s", bindErr.Error())
+		return
+	}
+	var res core.HeartbeatReply
+	cuckooErr := s.cuckooServer.Heartbeat(args, &res)
+	if cuckooErr != nil {
+		ctx.String(500, "cuckoo 操作失败！%s", cuckooErr.Error())
+		return
+	}
+	// 序列化并返回结果
+	ctx.JSON(200, res)
 }
 
 func (s *schedServer) appendEntries(ctx *gin.Context) {
