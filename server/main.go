@@ -84,6 +84,6 @@ func (s *schedServer) start() {
 
 	// 启动 gin服务
 	g := s.ginServer
-	g.GET("/")
+	g.GET("/job/add")
 	_ = g.Run(s.addr)
 }

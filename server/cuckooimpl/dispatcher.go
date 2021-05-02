@@ -19,7 +19,7 @@ func NewDispatcher(logger raft.Logger) *HttpDispatcher {
 	}
 }
 
-func (h *HttpDispatcher) Dispatch(clientAddr core.NodeAddr, job core.Job) (err error) {
+func (h *HttpDispatcher) Dispatch(clientAddr core.NodeAddr, id core.JobId) (err error) {
 	defer func() {
 		if err != nil {
 			h.logger.Error(err.Error())
@@ -28,7 +28,7 @@ func (h *HttpDispatcher) Dispatch(clientAddr core.NodeAddr, job core.Job) (err e
 	// 发送请求
 	url := fmt.Sprintf("%s%s%s", "http://", clientAddr, "/appendEntries")
 	var res string
-	response, resErr := h.client.R().SetHeader("Content-Type", "application/json").SetBody(job).SetResult(&res).Post(url)
+	response, resErr := h.client.R().SetPathParam("jobId", string(id)).SetResult(&res).Post(url)
 	if resErr != nil {
 		return fmt.Errorf("发送请求失败！%w", resErr)
 	}
