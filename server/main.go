@@ -5,6 +5,7 @@ import (
 	"github.com/bitcapybara/cuckoo/server"
 	"github.com/bitcapybara/cuckoo/server/controller"
 	"github.com/bitcapybara/raft"
+	"github.com/bitcapybara/simpleSched/server/cuckooimpl"
 	"github.com/bitcapybara/simpleSched/server/raftimpl"
 	"github.com/gin-gonic/gin"
 	"log"
@@ -50,8 +51,10 @@ func main() {
 
 type schedServer struct {
 	addr         string
+	node         *raft.Node
 	cuckooServer *server.Server
 	ginServer    *gin.Engine
+	logger       raft.Logger
 }
 
 func newServer(role raft.RoleStage, me raft.NodeId, peers map[raft.NodeId]raft.NodeAddr) *schedServer {
@@ -66,15 +69,17 @@ func newServer(role raft.RoleStage, me raft.NodeId, peers map[raft.NodeId]raft.N
 			HeartbeatTimeout:   1000,
 			MaxLogLength:       50,
 		},
-		JobPool:       controller.NewSliceJobPool(logger),
-		JobDispatcher: nil,
+		JobPool:        controller.NewSliceJobPool(logger),
+		JobDispatcher:  cuckooimpl.NewDispatcher(logger),
 		ExecutorExpire: time.Second * 10,
 	}
 	ginServer := gin.Default()
 	return &schedServer{
-		addr:   string(peers[me]),
+		addr:         string(peers[me]),
+		node:         raft.NewNode(config.RaftConfig),
 		cuckooServer: server.NewServer(config),
 		ginServer:    ginServer,
+		logger:       logger,
 	}
 }
 
@@ -85,5 +90,78 @@ func (s *schedServer) start() {
 	// 启动 gin服务
 	g := s.ginServer
 	g.GET("/job/add")
+
+	g.POST("/appendEntries", s.appendEntries)
+	g.POST("/requestVote", s.requestVote)
+	g.POST("/installSnapshot", s.installSnapshot)
 	_ = g.Run(s.addr)
+}
+
+func (s *schedServer) appendEntries(ctx *gin.Context) {
+	// 反序列化获取请求参数
+	var args raft.AppendEntry
+	bindErr := ctx.Bind(&args)
+	if bindErr != nil {
+		ctx.String(500, "反序列化参数失, %s", bindErr.Error())
+		return
+	}
+	// 调用 raft 逻辑
+	var res raft.AppendEntryReply
+	raftErr := s.node.AppendEntries(args, &res)
+	if raftErr != nil {
+		ctx.String(500, "raft 操作失败！%s", raftErr.Error())
+		return
+	}
+	// 序列化并返回结果
+	ctx.JSON(200, res)
+}
+
+func (s *schedServer) requestVote(ctx *gin.Context) {
+	var err error
+	defer func() {
+		if err != nil {
+			s.logger.Error(err.Error())
+		}
+	}()
+	// 反序列化获取请求参数
+	var args raft.RequestVote
+	bindErr := ctx.Bind(&args)
+	if bindErr != nil {
+		ctx.String(500, "反序列化参数失败！%s", bindErr.Error())
+		return
+	}
+	// 调用 raft 逻辑
+	var res raft.RequestVoteReply
+	raftErr := s.node.RequestVote(args, &res)
+	if raftErr != nil {
+		ctx.String(500, "raft 操作失败！%s", raftErr.Error())
+		return
+	}
+	// 序列化并返回结果
+	ctx.JSON(200, res)
+}
+
+func (s *schedServer) installSnapshot(ctx *gin.Context) {
+	var err error
+	defer func() {
+		if err != nil {
+			s.logger.Error(err.Error())
+		}
+	}()
+	// 反序列化获取请求参数
+	var args raft.InstallSnapshot
+	bindErr := ctx.Bind(&args)
+	if bindErr != nil {
+		ctx.String(500, "反序列化参数失败！%s", bindErr.Error())
+		return
+	}
+	// 调用 raft 逻辑
+	var res raft.InstallSnapshotReply
+	raftErr := s.node.InstallSnapshot(args, &res)
+	if raftErr != nil {
+		ctx.String(500, "raft 操作失败！%s", raftErr.Error())
+		return
+	}
+	// 序列化并返回结果
+	ctx.JSON(200, res)
 }
