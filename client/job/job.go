@@ -43,19 +43,19 @@ func (c cronJob) execute() error {
 	return nil
 }
 
-type fixDelayJob struct {
+type fixRateJob struct {
 
 }
 
-func newFixDelayJob() fixDelayJob {
-	return fixDelayJob{}
+func newFixRateJob() fixRateJob {
+	return fixRateJob{}
 }
 
-func (c fixDelayJob) genJob() core.Job {
+func (c fixRateJob) genJob() core.Job {
 	return core.Job{
 		Id: "fixDelay",
 		ScheduleRule: core.ScheduleRule{
-			ScheduleType: core.FixedDelay,
+			ScheduleType: core.FixedRate,
 			Initial: time.Second * 5,
 			Duration: time.Second * 3,
 		},
@@ -63,8 +63,8 @@ func (c fixDelayJob) genJob() core.Job {
 	}
 }
 
-func (c fixDelayJob) execute() error {
-	fName := fmt.Sprintf("/Users/yuxingy/Downloads/fixDelay-%s", time.Now().Format("2006-01-02_15-04-05.000"))
+func (c fixRateJob) execute() error {
+	fName := fmt.Sprintf("/Users/yuxingy/Downloads/fixedRate-%s", time.Now().Format("2006-01-02_15-04-05.000"))
 	_, err := os.Create(fName)
 	if err != nil {
 		return fmt.Errorf("创建文件失败！%w", err)

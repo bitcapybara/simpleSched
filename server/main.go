@@ -52,7 +52,6 @@ func main() {
 
 type schedServer struct {
 	addr         string
-	node         *raft.Node
 	cuckooServer *server.Server
 	ginServer    *gin.Engine
 	logger       raft.Logger
@@ -81,7 +80,6 @@ func newServer(role raft.RoleStage, me raft.NodeId, peers map[raft.NodeId]raft.N
 	ginServer := gin.Default()
 	return &schedServer{
 		addr:         string(peers[me]),
-		node:         raft.NewNode(config.RaftConfig),
 		cuckooServer: server.NewServer(config),
 		ginServer:    ginServer,
 		logger:       logger,
@@ -149,7 +147,7 @@ func (s *schedServer) appendEntries(ctx *gin.Context) {
 	}
 	// 调用 raft 逻辑
 	var res raft.AppendEntryReply
-	raftErr := s.node.AppendEntries(args, &res)
+	raftErr := s.cuckooServer.AppendEntries(args, &res)
 	if raftErr != nil {
 		ctx.String(500, "raft 操作失败！%s", raftErr.Error())
 		return
@@ -174,7 +172,7 @@ func (s *schedServer) requestVote(ctx *gin.Context) {
 	}
 	// 调用 raft 逻辑
 	var res raft.RequestVoteReply
-	raftErr := s.node.RequestVote(args, &res)
+	raftErr := s.cuckooServer.RequestVote(args, &res)
 	if raftErr != nil {
 		ctx.String(500, "raft 操作失败！%s", raftErr.Error())
 		return
@@ -199,7 +197,7 @@ func (s *schedServer) installSnapshot(ctx *gin.Context) {
 	}
 	// 调用 raft 逻辑
 	var res raft.InstallSnapshotReply
-	raftErr := s.node.InstallSnapshot(args, &res)
+	raftErr := s.cuckooServer.InstallSnapshot(args, &res)
 	if raftErr != nil {
 		ctx.String(500, "raft 操作失败！%s", raftErr.Error())
 		return

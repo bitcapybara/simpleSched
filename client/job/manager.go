@@ -9,7 +9,7 @@ var jobMap map[core.JobId]job
 
 func init() {
 	cron := newCronJob()
-	delay := newFixDelayJob()
+	delay := newFixRateJob()
 	jobMap = map[core.JobId]job{
 		cron.genJob().Id: cron,
 		delay.genJob().Id: delay,
